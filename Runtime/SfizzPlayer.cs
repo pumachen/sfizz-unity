@@ -1,5 +1,6 @@
 // #define DEBUG_VERBOSE
 
+using Unity.Collections;
 using UnityEngine;
 
 namespace F1yingBanana.SfizzUnity {
@@ -105,9 +106,11 @@ namespace F1yingBanana.SfizzUnity {
       Sfizz.RenderBlock(buffer, Channels, samples);
 
       // Note this cannot be cached. See doc on AudioClipSizeMultiplier.
-      float[] interleavedBuffer = new float[samples * Channels];
-      Interleave(buffer, interleavedBuffer, samples);
-      audioClip.SetData(interleavedBuffer, audioOffset);
+      using (NativeArray<float> interleavedBuffer = new NativeArray<float>(samples * Channels, Allocator.Temp))
+      {
+        Interleave(buffer, interleavedBuffer, samples);
+        audioClip.SetData(interleavedBuffer, audioOffset);
+      }
 
       // Occasionally the playback may lag behind or get in front of what we rendered. We can't
       // adjust this every frame as the frames don't line up with Update and we get an audio version
@@ -180,7 +183,7 @@ namespace F1yingBanana.SfizzUnity {
       audioOffset = 0;
     }
 
-    private void Interleave(float[][] input, float[] output, int samples) {
+    private void Interleave(float[][] input, NativeArray<float> output, int samples) {
       int k = 0;
 
       for (int i = 0; i < samples; i++) {

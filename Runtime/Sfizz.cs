@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Unity.Collections;
 using UnityEngine.Assertions;
 
 namespace F1yingBanana.SfizzUnity {
@@ -328,22 +329,25 @@ namespace F1yingBanana.SfizzUnity {
       // The renderBlock method takes in a list of pointers to float arrays, one for each channel.
       // We therefore need to pin each channel separately and creates an overall address array.
       int channels = buffer.Length;
-      IntPtr[] ptrs = new IntPtr[channels];
-      GCHandle[] handles = new GCHandle[channels];
+      unsafe
+      {
+          IntPtr* ptrs = stackalloc IntPtr[numChannels];
+          GCHandle* handles = stackalloc GCHandle[channels];
 
-      for (int i = 0; i < channels; i++) {
-        handles[i] = GCHandle.Alloc(buffer[i], GCHandleType.Pinned);
-        ptrs[i] = handles[i].AddrOfPinnedObject();
+          for (int i = 0; i < channels; i++)
+          {
+              handles[i] = GCHandle.Alloc(buffer[i], GCHandleType.Pinned);
+              ptrs[i] = handles[i].AddrOfPinnedObject();
+              //ptrs[i] = new IntPtr(&buffer[i]);
+          }
+
+          sfizz_render_block(nativePtr, new IntPtr(ptrs), numChannels, numFrames);
+
+          for (int i = 0; i < channels; i++)
+          {
+              handles[i].Free();
+          }
       }
-
-      GCHandle bufferHandle = GCHandle.Alloc(ptrs, GCHandleType.Pinned);
-      sfizz_render_block(nativePtr, bufferHandle.AddrOfPinnedObject(), numChannels, numFrames);
-
-      for (int i = 0; i < channels; i++) {
-        handles[i].Free();
-      }
-
-      bufferHandle.Free();
     }
 
     public int GetPreloadSize() {
