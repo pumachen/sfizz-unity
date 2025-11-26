@@ -1,6 +1,10 @@
 // #define DEBUG_VERBOSE
 
+using System;
+using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace F1yingBanana.SfizzUnity {
@@ -92,6 +96,7 @@ namespace F1yingBanana.SfizzUnity {
       Sfizz.Dispose();
     }
 
+    static readonly float[] interleavedBuffer = new float[16384];
     private void UpdateAudioStream(float dt) {
       // Check whether sample rate has updated, and initialize.
       UpdateSampleRate();
@@ -106,10 +111,9 @@ namespace F1yingBanana.SfizzUnity {
       Sfizz.RenderBlock(buffer, Channels, samples);
 
       // Note this cannot be cached. See doc on AudioClipSizeMultiplier.
-      using (NativeArray<float> interleavedBuffer = new NativeArray<float>(samples * Channels, Allocator.Temp))
       {
         Interleave(buffer, interleavedBuffer, samples);
-        audioClip.SetData(interleavedBuffer, audioOffset);
+        audioClip.SetData(new ReadOnlySpan<float>(interleavedBuffer, 0, samples * Channels), audioOffset);
       }
 
       // Occasionally the playback may lag behind or get in front of what we rendered. We can't
@@ -183,7 +187,7 @@ namespace F1yingBanana.SfizzUnity {
       audioOffset = 0;
     }
 
-    private void Interleave(float[][] input, NativeArray<float> output, int samples) {
+    private void Interleave(float[][] input, float[] output, int samples) {
       int k = 0;
 
       for (int i = 0; i < samples; i++) {
